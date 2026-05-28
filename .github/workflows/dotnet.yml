@@ -7,11 +7,13 @@ on:
   push:
     branches:
       - master
+      - vatnz/main
     tags:
       - '*'
   pull_request:
     branches:
       - master
+      - vatnz/main
 
 jobs:
   build:

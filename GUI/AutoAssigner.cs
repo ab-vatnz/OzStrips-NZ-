@@ -366,11 +366,6 @@ internal class AutoAssigner
 
     internal static string GetSIDName(Strip strip, string shortSID, string preferredRunway = "")
     {
-        if (!strip.FDR.DepAirport.StartsWith("NZ", StringComparison.OrdinalIgnoreCase))
-        {
-            return GetLegacySIDName(strip, shortSID);
-        }
-
         var rwys = Airspace2.GetRunways(strip.FDR.DepAirport);
         var runwayHints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(preferredRunway))
@@ -400,6 +395,7 @@ internal class AutoAssigner
 
         var foundSIDs = new List<string>();
 
+        // Match by regex instead.
         if (shortSID.StartsWith("#", StringComparison.InvariantCulture))
         {
             var regex = new Regex(shortSID.Remove(0, 1), RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -423,21 +419,6 @@ internal class AutoAssigner
         return foundSIDs.FirstOrDefault(x => SIDNameContainsRouteWaypoint(x, routeWaypoints)) ??
             foundSIDs.FirstOrDefault() ??
             shortSID;
-    }
-
-    private static string GetLegacySIDName(Strip strip, string shortSID)
-    {
-        var rwys = Airspace2.GetRunways(strip.FDR.DepAirport);
-        var foundSIDs = rwys?.Select(x => x.SIDs.FirstOrDefault(x => x.sidStar.Name.Contains(shortSID)));
-
-        // Match by regex instead.
-        if (shortSID.StartsWith("#", StringComparison.InvariantCulture))
-        {
-            var regex = new Regex(shortSID.Remove(0, 1));
-            foundSIDs = rwys?.Select(x => x.SIDs.FirstOrDefault(x => regex.IsMatch(x.sidStar.Name)));
-        }
-
-        return foundSIDs?.FirstOrDefault(x => x.sidStar is not null).sidStar?.Name ?? shortSID;
     }
 
     private static bool SIDNameContainsRouteWaypoint(string sidName, HashSet<string> routeWaypoints)
@@ -519,6 +500,24 @@ internal class AutoAssigner
             "L" or "R" or "C" => side.ToUpperInvariant(),
             _ => string.Empty,
         };
+    }
+
+    private static bool IsJetAircraft(Strip strip)
+    {
+        var aircraftTypeAndWake = strip.FDR.AircraftTypeAndWake;
+        var aircraftTypeText = aircraftTypeAndWake.ToString().Trim().ToUpperInvariant();
+
+        return Performance.GetPerformanceData(aircraftTypeAndWake)?.IsJet == true ||
+            LooksLikeJetType(aircraftTypeText);
+    }
+
+    private static bool LooksLikeJetType(string aircraftType)
+    {
+        aircraftType = (aircraftType ?? string.Empty).Split('/').First().Trim().ToUpperInvariant();
+        return Regex.IsMatch(
+            aircraftType,
+            @"^(A(20|21|30|31|32|33|34|35|38|3ST)|B(3[789]|7\d{2}|CS)|CRJ|E(135|145|170|175|190|195|290|295)|F28|F70|F100|MD|DC9|GLF|CL(30|35|60)|C17|C5|C25|C56X|LJ|FA|H25|PRM|HDJT)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     private string[] GetDepartureRunways(string rwyLine)
@@ -615,24 +614,6 @@ internal class AutoAssigner
         var allFreqs = atc.SelectMany(x => x.Frequencies ?? []).Select(x => Conversions.FSDFrequencyToString(x)).ToList() ?? [];
         allFreqs.AddRange(Network.Me.Frequencies?.Select(x => Conversions.FSDFrequencyToString(x)) ?? []);
         return allFreqs.Contains(freq);
-    }
-
-    private static bool IsJetAircraft(Strip strip)
-    {
-        var aircraftTypeAndWake = strip.FDR.AircraftTypeAndWake;
-        var aircraftTypeText = aircraftTypeAndWake.ToString().Trim().ToUpperInvariant();
-
-        return Performance.GetPerformanceData(aircraftTypeAndWake)?.IsJet == true ||
-            LooksLikeJetType(aircraftTypeText);
-    }
-
-    private static bool LooksLikeJetType(string aircraftType)
-    {
-        aircraftType = (aircraftType ?? string.Empty).Split('/').First().Trim().ToUpperInvariant();
-        return Regex.IsMatch(
-            aircraftType,
-            @"^(A(20|21|30|31|32|33|34|35|38|3ST)|B(3[789]|7\d{2}|CS)|CRJ|E(135|145|170|175|190|195|290|295)|F28|F70|F100|MD|DC9|GLF|CL(30|35|60)|C17|C5|C25|C56X|LJ|FA|H25|PRM|HDJT)",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     public static string DetermineDepFreq(List<string> freqs)

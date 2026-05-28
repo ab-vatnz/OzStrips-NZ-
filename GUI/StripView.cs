@@ -176,7 +176,7 @@ internal class StripView(Strip strip, BayRenderController bayRC) : IRenderedStri
                 action = clicked.MiddleClick;
             }
 
-            HandleClickAction(action);
+            HandleClickAction(action, clicked);
         }
         else
         {
@@ -294,8 +294,10 @@ internal class StripView(Strip strip, BayRenderController bayRC) : IRenderedStri
         }
     }
 
-    private void HandleClickAction(StripElements.Actions action)
+    private void HandleClickAction(StripElements.Actions action, StripElement? clicked)
     {
+        var popupPosition = clicked is null ? System.Windows.Forms.Cursor.Position : ElementCenterScreenPoint(clicked);
+
         switch (action)
         {
             case StripElements.Actions.SHOW_ROUTE:
@@ -314,7 +316,7 @@ internal class StripView(Strip strip, BayRenderController bayRC) : IRenderedStri
 
                 break;
             case StripElements.Actions.OPEN_FDR:
-                _strip.OpenVatsysFDR();
+                _strip.OpenVatsysFDR(popupPosition);
                 break;
             case StripElements.Actions.SID_TRIGGER:
                 _strip.SIDTrigger();
@@ -346,11 +348,14 @@ internal class StripView(Strip strip, BayRenderController bayRC) : IRenderedStri
             case StripElements.Actions.MOD_CFL:
                 _strip.Controller.OpenCFLWindow();
                 break;
+            case StripElements.Actions.MOD_RFL:
+                _strip.OpenVatsysFDR(popupPosition);
+                break;
             case StripElements.Actions.MOD_RWY:
-                _strip.Controller.OpenRWYWindow();
+                _strip.Controller.OpenRWYWindow(popupPosition);
                 break;
             case StripElements.Actions.MOD_SID:
-                _strip.Controller.OpenSIDWindow();
+                _strip.Controller.OpenSIDWindow(popupPosition);
                 break;
             case StripElements.Actions.OPEN_HDG_ALT:
                 _strip.Controller.OpenCLXBayModal("freq");
@@ -440,6 +445,13 @@ internal class StripView(Strip strip, BayRenderController bayRC) : IRenderedStri
         }
     }
 
+    private Point ElementCenterScreenPoint(StripElement element)
+    {
+        var x = (int)(ElementOrigin.X + element.X + (element.W / 2f));
+        var y = (int)(ElementOrigin.Y + element.Y + (element.H / 2f));
+        return _bayRenderController.SkControl?.PointToScreen(new Point(x, y)) ?? System.Windows.Forms.Cursor.Position;
+    }
+
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity", Justification = "Necessary.")]
     private string GetElementText(StripElement element)
     {
@@ -450,7 +462,7 @@ internal class StripView(Strip strip, BayRenderController bayRC) : IRenderedStri
             case StripElements.Values.ACID:
                 return _strip.FDR.Callsign;
             case StripElements.Values.SSR:
-                return (_strip.FDR.AssignedSSRCode == -1) ? "XXXX" : Convert.ToString(_strip.FDR.AssignedSSRCode, 8).PadLeft(4, '0');
+                return _strip.DisplaySSR;
             case StripElements.Values.ADES:
                 return _strip.FDR.DesAirport;
             case StripElements.Values.ADEP:
@@ -484,7 +496,7 @@ internal class StripView(Strip strip, BayRenderController bayRC) : IRenderedStri
             case StripElements.Values.DEPFREQ:
                 return _strip.DepartureFrequency;
             case StripElements.Values.SID:
-                return _strip.SID;
+                return _strip.DisplaySID;
             case StripElements.Values.FIRST_WPT:
                 if (_strip.FirstWpt.Length > 5)
                 {

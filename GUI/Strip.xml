@@ -1,193 +1,159 @@
 <StripElementList>
-  <!-- COL1 -->
+  <!--
+    NZ merged strip layout for OzStrips.
+
+    OzStrips supports one 420x60 live layout for every strip state. This version
+    keeps the real-strip feel by using a large open taxi/free-text area instead
+    of a grid of small boxes.
+  -->
+
+  <!-- Left identity block: one visual block with aircraft details over the callsign. -->
+  <StripElement>
+    <X>0</X>
+    <Y>0</Y>
+    <W>140</W>
+    <H>60</H>
+    <Value>ACID</Value>
+    <LeftClick>PICK</LeftClick>
+    <RightClick>OPEN_FDR</RightClick>
+    <BorderColour>#00000000</BorderColour>
+    <FontSize>28</FontSize>
+  </StripElement>
   <StripElement cockable="true">
     <X>0</X>
     <Y>0</Y>
-    <W>50</W>
-    <H>20</H>
-    <Value>STAND</Value>
-    <LeftClick>MOD_STD</LeftClick>
-  </StripElement>
-  <StripElement cockable="true">
-    <X>0</X>
-    <Y>20</Y>
-    <W>50</W>
-    <H>20</H>
-    <Value>ADES</Value>
-    <LeftClick>OPEN_FDR</LeftClick>
-  </StripElement>
-  <!-- COL2 -->
-  <StripElement cockable="true">
-    <X>50</X>
-    <Y>0</Y>
-    <W>50</W>
-    <H>20</H>
-    <Value>EOBT</Value>
-    <LeftClick>COCK</LeftClick>
-    <RightClick>OPEN_CDM</RightClick>
-  </StripElement>
-  <StripElement cockable="true">
-    <X>50</X>
-    <Y>20</Y>
-    <W>25</W>
-    <H>20</H>
-    <Value>ROUTE</Value>
-    <LeftClick>SHOW_ROUTE</LeftClick>
-  </StripElement>
-  <StripElement cockable="true">
-    <X>75</X>
-    <Y>20</Y>
-    <W>25</W>
-    <H>20</H>
-    <Value>FRUL</Value>
-    <LeftClick>SHOW_ROUTE</LeftClick>
-  </StripElement>
-  <!-- COL 3/4 -->
-  <StripElement cockable="true">
-    <X>100</X>
-    <Y>0</Y>
-    <W>50</W>
-    <H>20</H>
+    <W>34</W>
+    <H>14</H>
     <Value>TYPE</Value>
     <LeftClick>OPEN_FDR</LeftClick>
+    <BorderColour>#00000000</BorderColour>
+    <FontSize>10</FontSize>
   </StripElement>
   <StripElement cockable="true">
-    <X>150</X>
+    <X>34</X>
     <Y>0</Y>
-    <W>25</W>
-    <H>20</H>
+    <W>16</W>
+    <H>14</H>
     <Value>WTC</Value>
+    <BorderColour>#00000000</BorderColour>
+    <FontSize>10</FontSize>
   </StripElement>
   <StripElement cockable="true">
-    <X>100</X>
-    <Y>20</Y>
-    <W>25</W>
+    <X>92</X>
+    <Y>0</Y>
+    <W>48</W>
+    <H>14</H>
+    <Value>ADES</Value>
+    <LeftClick>OPEN_FDR</LeftClick>
+    <BorderColour>#00000000</BorderColour>
+    <FontSize>10</FontSize>
+  </StripElement>
+
+  <!-- Runway and level block. Bottom-left is intentionally blank, like the reference strip. -->
+  <StripElement>
+    <X>140</X>
+    <Y>0</Y>
+    <W>45</W>
     <H>20</H>
-    <Value>PDC_INDICATOR</Value>
-    <LeftClick>OPEN_PDC</LeftClick>
-    <RightClick>OPEN_PM</RightClick>
+    <Value>RWY</Value>
+    <LeftClick>MOD_RWY</LeftClick>
+    <FontSize>14</FontSize>
   </StripElement>
-  <StripElement cockable="true">
-    <X>125</X>
+  <StripElement>
+    <X>140</X>
     <Y>20</Y>
-    <W>50</W>
+    <W>22</W>
+    <H>20</H>
+    <Value>RFL</Value>
+    <LeftClick>MOD_RFL</LeftClick>
+    <Hover>RFL_WARNING</Hover>
+    <MiddleClick>INHIBIT_RFL</MiddleClick>
+    <FontSize>9</FontSize>
+  </StripElement>
+  <StripElement>
+    <X>162</X>
+    <Y>20</Y>
+    <W>23</W>
+    <H>20</H>
+    <Value>CFL</Value>
+    <LeftClick>MOD_CFL</LeftClick>
+    <FontSize>9</FontSize>
+  </StripElement>
+  <StripElement>
+    <X>140</X>
+    <Y>40</Y>
+    <W>45</W>
     <H>20</H>
     <Value>SSR</Value>
     <LeftClick>ASSIGN_SSR</LeftClick>
     <Hover>SSR_WARNING</Hover>
-	<MiddleClick>INHIBIT_SSR</MiddleClick>
+    <MiddleClick>INHIBIT_SSR</MiddleClick>
+    <FontSize>11</FontSize>
   </StripElement>
-  <!-- COL 5 -->
-  <StripElement>
-    <X>175</X>
-    <Y>0</Y>
-    <W>75</W>
-    <H>40</H>
-    <Value>ACID</Value>
-    <LeftClick>PICK</LeftClick>
-  </StripElement>
-  <!-- COL 6-->
-  <StripElement>
-    <X>250</X>
-    <Y>0</Y>
-    <W>30</W>
-    <H>20</H>
-    <Value>RWY</Value>
-    <LeftClick>MOD_RWY</LeftClick>
-  </StripElement>
-  <StripElement>
-    <X>250</X>
-    <Y>20</Y>
-    <W>30</W>
-    <H>20</H>
-    <Value>READY</Value>
-    <LeftClick>SET_READY</LeftClick>
-	<MiddleClick>INHIBIT_READY</MiddleClick>
-  </StripElement>
-  <!-- COL 7 -->
-  <StripElement>
-    <X>280</X>
-    <Y>0</Y>
-    <W>50</W>
-    <H>40</H>
-    <Value>CLX</Value>
-    <LeftClick>MOD_CLX</LeftClick>
-  </StripElement>
-  <!-- COL 8 -->
-  <StripElement>
-    <X>330</X>
-    <Y>0</Y>
-    <W>60</W>
-    <H>20</H>
-    <Value>SID</Value>
-    <LeftClick>SID_TRIGGER</LeftClick>
-    <RightClick>MOD_SID</RightClick>
-    <Hover>SID_TRIGGER</Hover>
-    <MiddleClick>INHIBIT_SID</MiddleClick>
-  </StripElement>
-  <StripElement>
-    <X>330</X>
-    <Y>20</Y>
-    <W>60</W>
-    <H>20</H>
-    <Value>FIRST_WPT</Value>
-    <LeftClick>OPEN_FDR</LeftClick>
-    <RightClick>OPEN_REROUTE</RightClick>
-	<MiddleClick>INHIBIT_ROUTE</MiddleClick>
-    <Hover>ROUTE_WARNING</Hover>
-  </StripElement>
-  <!-- COL 9 -->
-  <StripElement>
-    <X>390</X>
-    <Y>0</Y>
-    <W>30</W>
-    <H>20</H>
-    <Value>RFL</Value>
-    <LeftClick>OPEN_FDR</LeftClick>
-    <Hover>RFL_WARNING</Hover>
-    <MiddleClick>INHIBIT_RFL</MiddleClick>
-  </StripElement>
-  <StripElement>
-    <X>390</X>
-    <Y>20</Y>
-    <W>30</W>
-    <H>20</H>
-    <Value>CFL</Value>
-    <LeftClick>MOD_CFL</LeftClick>
-  </StripElement>
-  <!-- Base -->
+
+  <!-- Main free-text taxi/route area, then SID and first waypoint below. -->
   <StripElement crossable="true">
-    <X>0</X>
-    <Y>40</Y>
-    <W>165</W>
-    <H>20</H>
+    <X>185</X>
+    <Y>0</Y>
+    <W>170</W>
+    <H>36</H>
     <Value>GLOP</Value>
     <LeftClick>MOD_GLOP</LeftClick>
     <MiddleClick>INHIBIT_HDG</MiddleClick>
-  </StripElement>
-  <StripElement crossable="true">
-    <X>165</X>
-    <Y>40</Y>
-    <W>165</W>
-    <H>20</H>
-    <Value>REMARK</Value>
-    <LeftClick>MOD_REMARK</LeftClick>
-  </StripElement>
-  <StripElement crossable="true">
-    <X>330</X>
-    <Y>40</Y>
-    <W>60</W>
-    <H>20</H>
-    <Value>DEPFREQ</Value>
-    <LeftClick>OPEN_HDG_ALT</LeftClick>
+    <FontSize>16</FontSize>
   </StripElement>
   <StripElement>
+    <X>185</X>
+    <Y>36</Y>
+    <W>85</W>
+    <H>24</H>
+    <Value>SID</Value>
+    <LeftClick>MOD_SID</LeftClick>
+    <RightClick>SID_TRIGGER</RightClick>
+    <Hover>SID_TRIGGER</Hover>
+    <MiddleClick>INHIBIT_SID</MiddleClick>
+    <FontSize>18</FontSize>
+  </StripElement>
+  <StripElement>
+    <X>270</X>
+    <Y>36</Y>
+    <W>85</W>
+    <H>24</H>
+    <Value>FIRST_WPT</Value>
+    <LeftClick>OPEN_FDR</LeftClick>
+    <RightClick>OPEN_REROUTE</RightClick>
+    <MiddleClick>INHIBIT_ROUTE</MiddleClick>
+    <Hover>ROUTE_WARNING</Hover>
+    <FontSize>13</FontSize>
+  </StripElement>
+
+  <!-- Right side: one big stand box, then an I/V info box and a time box. -->
+  <StripElement>
+    <X>355</X>
+    <Y>0</Y>
+    <W>35</W>
+    <H>60</H>
+    <Value>STAND</Value>
+    <LeftClick>MOD_STD</LeftClick>
+    <FontSize>15</FontSize>
+  </StripElement>
+  <StripElement cockable="true">
     <X>390</X>
-    <Y>40</Y>
+    <Y>0</Y>
     <W>30</W>
-    <H>20</H>
-    <Value>TOT</Value>
-    <LeftClick>SET_TOT</LeftClick>
-    <FontSize>10</FontSize>
+    <H>30</H>
+    <Value>FRUL</Value>
+    <LeftClick>SHOW_ROUTE</LeftClick>
+    <FontSize>14</FontSize>
+  </StripElement>
+  <StripElement cockable="true">
+    <X>390</X>
+    <Y>30</Y>
+    <W>30</W>
+    <H>30</H>
+    <Value>EOBT</Value>
+    <LeftClick>OPEN_PDC</LeftClick>
+    <RightClick>OPEN_PM</RightClick>
+    <FontSize>12</FontSize>
   </StripElement>
 </StripElementList>

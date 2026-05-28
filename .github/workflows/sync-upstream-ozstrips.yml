@@ -1,0 +1,88 @@
+name: Sync upstream OzStrips
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: Upstream branch or ref to merge
+        required: true
+        default: master
+      target_branch:
+        description: VATNZ branch to update
+        required: true
+        default: vatnz/main
+  schedule:
+    - cron: "35 17 * * 0"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Open upstream sync PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve inputs
+        id: vars
+        shell: bash
+        run: |
+          echo "upstream_ref=${{ github.event.inputs.upstream_ref || 'master' }}" >> "$GITHUB_OUTPUT"
+          echo "target_branch=${{ github.event.inputs.target_branch || 'vatnz/main' }}" >> "$GITHUB_OUTPUT"
+          echo "sync_branch=sync/upstream-ozstrips" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.vars.outputs.target_branch }}
+          fetch-depth: 0
+
+      - name: Configure git
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge upstream
+        id: merge
+        shell: bash
+        run: |
+          git remote add upstream https://github.com/maxrumsey/OzStrips.git || true
+          git fetch upstream "${{ steps.vars.outputs.upstream_ref }}"
+          git fetch origin "${{ steps.vars.outputs.target_branch }}"
+          git checkout -B "${{ steps.vars.outputs.sync_branch }}" "origin/${{ steps.vars.outputs.target_branch }}"
+
+          if ! git merge --no-edit "upstream/${{ steps.vars.outputs.upstream_ref }}"; then
+            echo "::error::Upstream merge conflicted. Resolve locally by merging upstream/${{ steps.vars.outputs.upstream_ref }} into ${{ steps.vars.outputs.target_branch }}."
+            git status --short
+            exit 1
+          fi
+
+          if git diff --quiet "origin/${{ steps.vars.outputs.target_branch }}"..HEAD; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No upstream changes to sync."
+            exit 0
+          fi
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push sync branch
+        if: steps.merge.outputs.changed == 'true'
+        shell: bash
+        run: git push --force origin "${{ steps.vars.outputs.sync_branch }}"
+
+      - name: Open or update PR
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh pr list --base "${{ steps.vars.outputs.target_branch }}" --head "${{ steps.vars.outputs.sync_branch }}" --state open --json number --jq '.[0].number' | grep -q '[0-9]'; then
+            echo "Sync PR already exists."
+          else
+            gh pr create \
+              --base "${{ steps.vars.outputs.target_branch }}" \
+              --head "${{ steps.vars.outputs.sync_branch }}" \
+              --title "Sync upstream OzStrips into VATNZ" \
+              --body "Merges maxrumsey/OzStrips \`${{ steps.vars.outputs.upstream_ref }}\` into \`${{ steps.vars.outputs.target_branch }}\`.\n\nReview the diff carefully before merging, especially VATNZ layout, autofill, server, and aerodrome settings files."
+          fi

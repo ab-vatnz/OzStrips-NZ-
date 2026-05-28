@@ -29,6 +29,19 @@ public sealed class Strip : IDisposable
     private static readonly Regex _sidRouteRegex = new(@"^[\w\d]+\/[\d]{2}\w?");
     private static readonly Regex _gpscoordRegex = new(@"^[\d]+\w[\d]+\w");
     private static readonly Regex _airwayRegex = new(@"^\w\d+");
+    private static readonly Regex _euroScopeSidRegex = new(@"^([A-Z]{4})[A-Z](\d[A-Z]).*$", RegexOptions.IgnoreCase);
+    private static readonly Regex _shortSidRegex = new(@"^([A-Z]{4}\d[A-Z]).*$", RegexOptions.IgnoreCase);
+    private static readonly Regex _sidProcedureRegex = new(@"^([A-Z]+)(\d[A-Z]).*$", RegexOptions.IgnoreCase);
+    private static readonly Regex _sidRunwayRegex = new(@"^(?<sid>[^/]+?)(?:/(?<runway>\d{2}[LCR]?))?$", RegexOptions.IgnoreCase);
+    private static readonly Dictionary<string, string> _knownSidPrefixes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "BELRA", "BELR" },
+        { "FIRTH", "FIRT" },
+        { "LEVER", "LEVR" },
+        { "LEVERA", "LEVR" },
+        { "MEMOP", "MEMO" },
+        { "ONODA", "ONOD" },
+    };
 
     private readonly BayManager _bayManager;
     private readonly SocketConn _socketConn;
@@ -275,7 +288,7 @@ public sealed class Strip : IDisposable
     /// </summary>
     public string CFL
     {
-        get => FDR.CFLString;
+        get => FDR.CFLString ?? string.Empty;
 
         set
         {
@@ -311,6 +324,16 @@ public sealed class Strip : IDisposable
             return (FDR.RFL / 100).ToString(CultureInfo.InvariantCulture).PadLeft(3, '0');
         }
     }
+
+    /// <summary>
+    /// Gets the squawk display text.
+    /// </summary>
+    public string DisplaySSR => IsDefaultSquawk ? "XXXX" : Convert.ToString(FDR.AssignedSSRCode, 8).PadLeft(4, '0');
+
+    /// <summary>
+    /// Gets a value indicating whether the strip has no discrete squawk assigned.
+    /// </summary>
+    public bool IsDefaultSquawk => FDR.AssignedSSRCode == -1 || Convert.ToString(FDR.AssignedSSRCode, 8).PadLeft(4, '0') == "2000";
 
     /// <summary>
     /// Gets or sets a value indicating whether the strip is ready for departure.
@@ -395,6 +418,18 @@ public sealed class Strip : IDisposable
     {
         get
         {
+            var routeRunway = SidRunwayFromRoute().Runway;
+            if (!string.IsNullOrWhiteSpace(routeRunway))
+            {
+                return routeRunway;
+            }
+
+            var sidRunway = SidRunwayFromRaw(FDR.SID?.Name ?? string.Empty).Runway;
+            if (!string.IsNullOrWhiteSpace(sidRunway))
+            {
+                return sidRunway;
+            }
+
             if ((StripType == StripType.DEPARTURE || StripType == StripType.LOCAL) && FDR.DepartureRunway != null)
             {
                 return FDR.DepartureRunway.Name;
@@ -576,9 +611,15 @@ public sealed class Strip : IDisposable
     {
         get
         {
+            var routeSid = SidRunwayFromRoute().Sid;
+            if (!string.IsNullOrWhiteSpace(routeSid))
+            {
+                return routeSid;
+            }
+
             if (StripType != StripType.ARRIVAL && FDR.SID is not null)
             {
-                return FDR.SID.Name;
+                return SidRunwayFromRaw(FDR.SID.Name).Sid;
             }
             else if (StripType != StripType.ARRIVAL)
             {
@@ -616,6 +657,85 @@ public sealed class Strip : IDisposable
                 Util.LogError(new("Attempted to set invalid SID"));
             }
         }
+    }
+
+    /// <summary>
+    /// Gets the SID formatted consistently across EuroScope and vatSys.
+    /// </summary>
+    public string DisplaySID
+    {
+        get
+        {
+            var sid = SID.Trim().ToUpperInvariant();
+            return FormatSIDForDisplay(sid);
+        }
+    }
+
+    private static string FormatSIDForDisplay(string sid)
+    {
+        sid = SidRunwayFromRaw(sid).Sid.Trim().ToUpperInvariant();
+
+        if (string.IsNullOrWhiteSpace(sid))
+        {
+            return string.Empty;
+        }
+
+        var procedureMatch = _sidProcedureRegex.Match(sid);
+        if (procedureMatch.Success)
+        {
+            var prefix = procedureMatch.Groups[1].Value;
+            var suffix = procedureMatch.Groups[2].Value;
+            if (_knownSidPrefixes.TryGetValue(prefix, out var knownPrefix))
+            {
+                return knownPrefix + suffix;
+            }
+        }
+
+        var euroScopeMatch = _euroScopeSidRegex.Match(sid);
+        if (euroScopeMatch.Success)
+        {
+            return euroScopeMatch.Groups[1].Value + euroScopeMatch.Groups[2].Value;
+        }
+
+        var shortMatch = _shortSidRegex.Match(sid);
+        if (shortMatch.Success)
+        {
+            return shortMatch.Groups[1].Value;
+        }
+
+        return sid;
+    }
+
+    private static (string Sid, string Runway) SidRunwayFromRaw(string value)
+    {
+        value = (value ?? string.Empty).Trim().ToUpperInvariant();
+        var match = _sidRunwayRegex.Match(value);
+        if (!match.Success)
+        {
+            return (value, string.Empty);
+        }
+
+        return (
+            match.Groups["sid"].Value.Trim().ToUpperInvariant(),
+            match.Groups["runway"].Success ? match.Groups["runway"].Value.Trim().ToUpperInvariant() : string.Empty);
+    }
+
+    private (string Sid, string Runway) SidRunwayFromRoute()
+    {
+        var firstToken = (FDR.RouteNoParse ?? FDR.Route ?? string.Empty)
+            .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault() ?? string.Empty;
+
+        var parsed = SidRunwayFromRaw(firstToken);
+        return !string.IsNullOrWhiteSpace(parsed.Runway) && LooksLikeSidToken(parsed.Sid)
+            ? parsed
+            : (string.Empty, string.Empty);
+    }
+
+    private static bool LooksLikeSidToken(string value)
+    {
+        return Regex.IsMatch(value ?? string.Empty, @"^[A-Z]{4,}\d[A-Z][A-Z]*$", RegexOptions.IgnoreCase) ||
+            Regex.IsMatch(value ?? string.Empty, @"^[A-Z]{4}\d[A-Z]$", RegexOptions.IgnoreCase);
     }
 
     /// <summary>
@@ -705,7 +825,7 @@ public sealed class Strip : IDisposable
             GATE = sc.Gate,
             cockLevel = sc.CockLevel,
             crossing = sc.Crossing,
-            remark = sc.Remark,
+            remark = !string.IsNullOrWhiteSpace(sc.FDR.GlobalOpData) ? sc.FDR.GlobalOpData : sc.Remark,
             TOT = sc.TakeOffTime?.ToString(CultureInfo.InvariantCulture) ?? "\0",
             ready = sc.Ready,
             DepartureChanged = sc.DepartureChanged,
@@ -713,6 +833,7 @@ public sealed class Strip : IDisposable
             OverrideStripType = sc.OverrideStripType,
             PDCFlags = sc.PDCFlags,
             DepartureFrequency = sc.DepartureFrequency,
+            GlobalOpData = sc.FDR.GlobalOpData,
             InhibitedAlerts = sc.InhibitedAlerts,
         };
 
@@ -1235,7 +1356,7 @@ public sealed class Strip : IDisposable
     /// <summary>
     /// Opens the VATSYS flight data record.
     /// </summary>
-    public void OpenVatsysFDR()
+    public void OpenVatsysFDR(Point? position = null)
     {
         MMI.OpenFPWindow(FDR);
     }

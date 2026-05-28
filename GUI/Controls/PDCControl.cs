@@ -76,7 +76,7 @@ public partial class PDCControl : UserControl
         var cfl_fl = cfl;
 
         cfl *= 100;
-        var ssr = (_strip.FDR.AssignedSSRCode == -1) ? "XXXX" : Convert.ToString(_strip.FDR.AssignedSSRCode, 8).PadLeft(4, '0');
+        var ssr = _strip.DisplaySSR;
 
         var format = AerodromeManager.PDCFormat
         .Replace("\n", "\r\n")

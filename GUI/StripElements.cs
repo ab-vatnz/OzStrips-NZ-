@@ -55,6 +55,7 @@ public static class StripElements
         OPEN_REROUTE,
         MOD_RWY,
         MOD_CFL,
+        MOD_RFL,
         MOD_CLX,
         MOD_STD,
         MOD_GLOP,

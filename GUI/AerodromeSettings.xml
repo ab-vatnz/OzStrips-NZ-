@@ -3,15 +3,16 @@
      Changes between the two files are not additive. Changes in the Profile directory will overwrite this one.-->
 <AerodromeSettings>
     <DefaultAerodromes>
-		<Aerodrome>YMML</Aerodrome>
-		<Aerodrome>YBBN</Aerodrome>
-		<Aerodrome>YBCG</Aerodrome>
-		<Aerodrome>YBSU</Aerodrome>
-		<Aerodrome>YPPH</Aerodrome>
-		<Aerodrome>YSSY</Aerodrome>
-		<Aerodrome>YPAD</Aerodrome>
-		<Aerodrome>YPDN</Aerodrome>
+		<Aerodrome>NZAA</Aerodrome>
+		<Aerodrome>NZWN</Aerodrome>
+		<Aerodrome>NZCH</Aerodrome>
+		<Aerodrome>NZQN</Aerodrome>
+		<Aerodrome>NZDN</Aerodrome>
+		<Aerodrome>NZPM</Aerodrome>
+		<Aerodrome>NZTG</Aerodrome>
+		<Aerodrome>NZRO</Aerodrome>
 	</DefaultAerodromes>
+  <UseNose>true</UseNose>
   <LayoutDefinitions>
     <!-- DEFAULT / RADAR TOWERS -->
     <LayoutDefinition Name="All">
@@ -225,7 +226,7 @@ CLIMB VIA SID TO: {CFL}
 DEP FREQ: {FREQ}
 SQUAWK {SQUAWK}
 ONLY READBACK SID, SQUAWK CODE, AND BAY NO. ON {READBACK}</PDCFormat>
-  <AerodromeAutoFillLocation></AerodromeAutoFillLocation>
+  <AerodromeAutoFillLocation>AutoFill</AerodromeAutoFillLocation>
   <StripColour Type="ARRIVAL">#ffffa0</StripColour>
   <StripColour Type="DEPARTURE">#c1e6f2</StripColour>
   <StripColour Type="LOCAL">#e6aedd</StripColour>

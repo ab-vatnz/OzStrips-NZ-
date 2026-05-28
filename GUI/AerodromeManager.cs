@@ -56,6 +56,11 @@ public class AerodromeManager
     public static StripColour[] StripColours { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets a value indicating whether NOSE/WEED level rules are active.
+    /// </summary>
+    public static bool UseNose { get; set; }
+
+    /// <summary>
     /// Gets a value indicating whether the window should autoopen.
     /// </summary>
     public bool AllowAutoOpen
@@ -247,6 +252,7 @@ public class AerodromeManager
         AerodromeAutoFillLocation = Settings?.AerodromeAutoFillLocation ?? string.Empty;
         PDCFormat = Settings?.PDCFormat ?? string.Empty;
         StripColours = Settings?.StripColours ?? [];
+        UseNose = bool.TryParse(Settings?.UseNose, out var useNose) ? useNose : !string.IsNullOrWhiteSpace(Settings?.UseNose);
     }
 
     private void SectorsChanged(object sender, EventArgs e)

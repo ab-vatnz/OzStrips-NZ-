@@ -134,13 +134,24 @@ public class StripController
     /// <returns>Active.</returns>
     public bool CFLAlertActive()
     {
-        var first = FDR.ParsedRoute.FirstOrDefault()?.Intersection.LatLong;
-        var last = FDR.ParsedRoute.LastOrDefault()?.Intersection.LatLong;
+        if (Strip.StripType == StripType.DEPARTURE && FDR.RFL == 14000)
+        {
+            return true;
+        }
+
+        if (AerodromeManager.UseNose)
+        {
+            return CFLAlertActiveNOSE();
+        }
+
+        var routePositions = FDR.ParsedRoute.Select(x => x.Intersection.LatLong).Where(IsUsablePosition).ToList();
+        var first = routePositions.FirstOrDefault();
+        var last = routePositions.LastOrDefault();
         var active = false;
 
         if (first is null ||
             last is null ||
-            first == last)
+            SamePosition(first, last))
         {
             return false;
         }
@@ -149,13 +160,7 @@ public class StripController
         int[] westRVSM = [43000, 47000, 51000];
 
         var track = Conversions.CalculateTrack(first, last);
-        var positions = LogicalPositions.Positions.FirstOrDefault(e => e.Name == Strip.ParentAerodrome);
-        if (positions is null)
-        {
-            return false;
-        }
-
-        var variation = positions.MagneticVariation;
+        var variation = LogicalPositions.Positions.FirstOrDefault(e => e.Name == Strip.ParentAerodrome)?.MagneticVariation ?? 0;
         track += variation;
 
         var even = true;
@@ -189,6 +194,90 @@ public class StripController
         return active;
     }
 
+    private bool CFLAlertActiveNOSE()
+    {
+        var routePositions = FDR.ParsedRoute.Select(x => x.Intersection.LatLong).Where(IsUsablePosition).ToList();
+        var first = routePositions.FirstOrDefault();
+        var last = routePositions.LastOrDefault();
+        var active = false;
+
+        if (first is null ||
+            last is null ||
+            SamePosition(first, last))
+        {
+            return false;
+        }
+
+        int[] eastRVSM = [41000, 45000, 49000];
+        int[] westRVSM = [43000, 47000, 51000];
+
+        var track = Conversions.CalculateTrack(first, last);
+        var variation = LogicalPositions.Positions.FirstOrDefault(e => e.Name == Strip.ParentAerodrome)?.MagneticVariation ?? 0;
+        track += variation;
+
+        var even = false;
+
+        if (track is >= 90 and < 270)
+        {
+            even = true;
+        }
+
+        if (Strip.RFL.Length < 2)
+        {
+            return false;
+        }
+
+        var digit = int.Parse(Strip.RFL[1].ToString(), CultureInfo.InvariantCulture);
+        var shouldbeeven = digit % 2 == 0;
+
+        if (even != shouldbeeven && FDR.RFL >= 3000 && Strip.StripType == StripType.DEPARTURE)
+        {
+            active = true;
+        }
+        else
+        {
+            active = false;
+        }
+
+        if (FDR.RFL >= 41000 && ((even && westRVSM.Contains(FDR.RFL)) || (!even && eastRVSM.Contains(FDR.RFL))))
+        {
+            active = false;
+        }
+        else if (FDR.RFL >= 41000 && Strip.StripType == StripType.DEPARTURE)
+        {
+            active = true;
+        }
+
+        return active;
+    }
+
+    private static bool IsUsablePosition(object? position)
+    {
+        var coordinates = ReadCoordinates(position);
+        return Math.Abs(coordinates.Latitude) > 0.000001 || Math.Abs(coordinates.Longitude) > 0.000001;
+    }
+
+    private static bool SamePosition(object first, object second)
+    {
+        var firstCoordinates = ReadCoordinates(first);
+        var secondCoordinates = ReadCoordinates(second);
+        return Math.Abs(firstCoordinates.Latitude - secondCoordinates.Latitude) < 0.000001 &&
+            Math.Abs(firstCoordinates.Longitude - secondCoordinates.Longitude) < 0.000001;
+    }
+
+    private static (double Latitude, double Longitude) ReadCoordinates(object? position)
+    {
+        if (position is null)
+        {
+            return (0, 0);
+        }
+
+        var type = position.GetType();
+        var latitude = type.GetProperty("Latitude")?.GetValue(position);
+        var longitude = type.GetProperty("Longitude")?.GetValue(position);
+        return (Convert.ToDouble(latitude, CultureInfo.InvariantCulture), Convert.ToDouble(longitude, CultureInfo.InvariantCulture));
+    }
+
     /// <summary>
     /// Opens the HDG window.
     /// </summary>
@@ -200,9 +289,9 @@ public class StripController
     /// <summary>
     /// Opens the RWY window.
     /// </summary>
-    public void OpenRWYWindow()
+    public void OpenRWYWindow(Point? position = null)
     {
-        MMI.OpenRWYMenu(FDR, Cursor.Position);
+        MMI.OpenRWYMenu(FDR, position ?? Cursor.Position);
     }
 
     /// <summary>
@@ -236,9 +325,9 @@ public class StripController
     /// <summary>
     /// Opens the SID window.
     /// </summary>
-    public void OpenSIDWindow()
+    public void OpenSIDWindow(Point? position = null)
     {
-        MMI.OpenSIDSTARMenu(FDR, Cursor.Position);
+        MMI.OpenSIDSTARMenu(FDR, position ?? Cursor.Position);
     }
 
     /// <summary>
@@ -299,9 +388,10 @@ public class StripController
     /// </summary>
     public void AssignSSR()
     {
-        if (FDR.AssignedSSRCode == -1 && Network.Me.IsRealATC)
+        if (Strip.IsDefaultSquawk && Network.Me.IsRealATC)
         {
             FDP2.SetASSR(Strip.FDR);
+            _ = Strip.SyncStrip();
         }
     }
 
@@ -325,7 +415,7 @@ public class StripController
         SetLabel("eobt", Strip.Time);
 
         SetLabel("acid", FDR.Callsign);
-        SetLabel("ssr", (FDR.AssignedSSRCode == -1) ? "XXXX" : Convert.ToString(FDR.AssignedSSRCode, 8).PadLeft(4, '0'));
+        SetLabel("ssr", Strip.DisplaySSR);
         SetLabel("type", FDR.AircraftType);
         SetLabel("frul", FDR.FlightRules);
 

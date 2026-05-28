@@ -35,6 +35,12 @@ public class StripDTO
     public string DepartureFrequency { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the global ops/free-text field.
+    /// </summary>
+    [JsonPropertyName("globalOpData")]
+    public string? GlobalOpData { get; set; }
+
+    /// <summary>
     /// Gets or sets the gate information.
     /// </summary>
     [JsonPropertyName("GATE")]

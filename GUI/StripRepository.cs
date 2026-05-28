@@ -131,6 +131,11 @@ public class StripRepository
                     strip.AllocatedBay = stripDTO.AllocatedBay ?? string.Empty;
 
                     strip.DepartureFrequency = stripDTO.DepartureFrequency ?? string.Empty;
+                    var incomingGlobalOpData = stripDTO.GlobalOpData ?? stripDTO.remark ?? string.Empty;
+                    if (strip.FDR.GlobalOpData != incomingGlobalOpData)
+                    {
+                        SetGlobalOps(strip.FDR, incomingGlobalOpData);
+                    }
 
                     if (strip.CurrentBay != stripDTO.bay)
                     {
@@ -143,7 +148,7 @@ public class StripRepository
                         null :
                         DateTime.Parse(stripDTO.TOT, CultureInfo.InvariantCulture);
 
-                    strip.Remark = !string.IsNullOrWhiteSpace(stripDTO.remark) ? stripDTO.remark : string.Empty;
+                    strip.Remark = !string.IsNullOrWhiteSpace(stripDTO.remark) ? stripDTO.remark ?? string.Empty : string.Empty;
                     strip.Crossing = stripDTO.crossing;
                     strip.Controller?.SetCross(false);
                     strip.Ready = stripDTO.ready;

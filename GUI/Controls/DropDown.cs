@@ -224,6 +224,7 @@ public partial class DropDown : BaseForm
             }
 
             FDP2.SetGlobalOps(strip.FDR, s);
+            _ = strip.SyncStrip();
         });
     }
 

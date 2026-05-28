@@ -90,6 +90,12 @@ public class AerodromeSettings
     /// </summary>
     public string? DefaultLayout { get; set; }
 
+    /// <summary>
+    /// Gets or sets whether NOSE/WEED level rules should be used.
+    /// </summary>
+    [XmlElement("UseNose")]
+    public string? UseNose { get; set; }
+
     internal static AerodromeSettings? Deserialize(string path)
     {
         try
@@ -176,6 +182,7 @@ public class AerodromeSettings
         baseSettings.AutoMapAerodromes = overwrite.AutoMapAerodromes ?? baseSettings.AutoMapAerodromes;
         baseSettings.StripColours = overwrite.StripColours ?? baseSettings.StripColours;
         baseSettings.DefaultLayout = overwrite.DefaultLayout ?? baseSettings.DefaultLayout;
+        baseSettings.UseNose = overwrite.UseNose ?? baseSettings.UseNose;
 
         return baseSettings;
     }

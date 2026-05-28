@@ -35,6 +35,11 @@ public record ConnectionMetadataDTO
         /// Sweatbox 3.
         /// </summary>
         SWEATBOX3,
+
+        /// <summary>
+        /// Local test server.
+        /// </summary>
+        LOCALHOST,
     }
 
     /// <summary>
