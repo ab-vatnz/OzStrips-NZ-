@@ -134,6 +134,11 @@ public class StripController
     /// <returns>Active.</returns>
     public bool CFLAlertActive()
     {
+        if (Strip.IsVfr)
+        {
+            return false;
+        }
+
         if (Strip.StripType == StripType.DEPARTURE && FDR.RFL == 14000)
         {
             return true;
