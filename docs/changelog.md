@@ -1,21 +1,4 @@
 # Changelog
-## v0.9.2
-### Misc Changes
-- Changed SID autofill option to be a regex, and match against current or incoming SID set.
-### Bugfixes
-- Fixed issue with PDCWatcher Window
-- Fixed error message when trying to fetch routes.
-- Fixed occasional error message when window closes.
-## v0.9.1
-### Misc Changes
-- Added destination autofill regex
-- Added NOSE altitude ruleset
-- Added ability to override RADAR Trans to no trans.
-### Bugfixes
-- Fixed temp regex issue for autofill file
-- Allow linebreaks in ATIS debug window
-- Fixed no default layout found
-- Fixed sema4 disposal issue.
 ## v0.9.0
 ### Misc Changes
 - Added new autofill rule options for YSWS

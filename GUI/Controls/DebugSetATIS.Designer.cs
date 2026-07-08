@@ -41,12 +41,11 @@
             this.lb_title.TabIndex = 1;
             this.lb_title.Text = "ATIS:";
             // 
-            // tb_atis
+            // tb_pdc
             // 
-            this.tb_atis.AcceptsReturn = true;
             this.tb_atis.Location = new System.Drawing.Point(3, 19);
             this.tb_atis.Multiline = true;
-            this.tb_atis.Name = "tb_atis";
+            this.tb_atis.Name = "tb_pdc";
             this.tb_atis.Size = new System.Drawing.Size(400, 261);
             this.tb_atis.TabIndex = 0;
             // 

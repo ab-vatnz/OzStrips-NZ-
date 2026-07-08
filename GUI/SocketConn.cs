@@ -187,26 +187,14 @@ public sealed class SocketConn : IAsyncDisposable
 
         RegisterListener("OutOfSync", async () =>
         {
-            InvokeOnGUI(async () =>
+            if (DateTime.Now - _lastDesyncResolution < TimeSpan.FromSeconds(30))
             {
-                if (DateTime.Now - _lastDesyncResolution < TimeSpan.FromSeconds(5))
-                {
-                    return;
-                }
+                return;
+            }
 
-                var res = Util.ShowQuestionBox("Client became desynchronised from server. Reconnect?");
-                if (res == DialogResult.Yes)
-                {
-                    _lastDesyncResolution = DateTime.Now;
-                    await SubscribeToAerodrome();
-                }
-                else
-                {
-                    _lastDesyncResolution = DateTime.Now;
-                    _enableAutoReconnect = false;
-                    Disconnect();
-                }
-            });
+            _lastDesyncResolution = DateTime.Now;
+            AddMessage("#Server reported desync. Resubscribing.");
+            await SubscribeToAerodrome();
         });
     }
 
@@ -260,7 +248,7 @@ public sealed class SocketConn : IAsyncDisposable
     {
         get
         {
-            return _connection.State == HubConnectionState.Connected && (Network.Me.IsRealATC || _isDebug) && _synchronised && !_isDisposed;
+            return _connection.State == HubConnectionState.Connected && (Network.Me.IsRealATC || _isDebug) && _synchronised;
         }
     }
 
@@ -472,15 +460,14 @@ public sealed class SocketConn : IAsyncDisposable
 
                 _synchronised = false;
                 var response = await _connection.InvokeAsync<AerodromeSubscriptionResponse>("SubscribeToAerodrome", connmetadata);
-                _synchronised = true;
 
-                if (response.Error is not null)
-                {
-                    throw response.Error;
-                }
-                else if (response is null)
+                if (response is null)
                 {
                     throw new ArgumentNullException("Subscription response was not included after aerodrome subscription.");
+                }
+                else if (response.Error is not null)
+                {
+                    throw response.Error;
                 }
                 else if (response.AerodromeICAO != _bayManager.AerodromeName ||
                     response.Server != Server)
@@ -501,6 +488,7 @@ public sealed class SocketConn : IAsyncDisposable
                     }
                 });
 
+                _synchronised = true;
                 _aerodromeSubscriptionRegistered = DateTime.Now;
             }
             else
@@ -511,6 +499,7 @@ public sealed class SocketConn : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            _synchronised = false;
             Util.LogError(ex);
         }
     }
@@ -637,46 +626,40 @@ public sealed class SocketConn : IAsyncDisposable
     /// <returns>Task.</returns>
     public async Task Connect()
     {
+        AddMessage("#Attempting connection " + OzStripsConfig.socketioaddr);
+        await _connectionSemaphore.WaitAsync();
+
+        // try-catch to ensure semaphore is released.
         try
         {
-            AddMessage("#Attempting connection " + OzStripsConfig.socketioaddr);
-            await _connectionSemaphore.WaitAsync();
-
-            // try-catch to ensure semaphore is released.
-            try
+            while (!_isDisposed)
             {
-                while (!_isDisposed)
+                if (State != ConnectionState.DISCONNECTED)
                 {
-                    if (State != ConnectionState.DISCONNECTED)
+                    return;
+                }
+
+                // Try to catch internet errors etc
+                try
+                {
+                    if (!MainFormController.ReadyForConnection || !CanConnectToCurrentServer())
                     {
                         return;
                     }
 
-                    // Try to catch internet errors etc
-                    try
-                    {
-                        if (!MainFormController.ReadyForConnection || !CanConnectToCurrentServer())
-                        {
-                            return;
-                        }
-
-                        await _connection.StartAsync();
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        Errors.Add(ex, "OzStrips - Server Connection Failed");
-                        await Task.Delay(TimeSpan.FromSeconds(10 + ((new Random().NextDouble() * 4) - 2)));
-                    }
+                    await _connection.StartAsync();
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Errors.Add(ex, "OzStrips - Server Connection Failed");
+                    await Task.Delay(TimeSpan.FromSeconds(10 + ((new Random().NextDouble() * 4) - 2)));
                 }
             }
-            finally
-            {
-                _connectionSemaphore.Release();
-            }
         }
-        catch (ObjectDisposedException)
+        finally
         {
+            _connectionSemaphore.Release();
         }
 
         try

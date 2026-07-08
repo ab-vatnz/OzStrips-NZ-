@@ -27,32 +27,7 @@ public class MainFormController : IDisposable, IStripsWindow
     private string _clientsOnline = string.Empty;
     private string _layoutName = "All";
 
-    private string _requestedDefaultLayoutName;
-
-    private string DefaultLayoutName
-    {
-        get
-        {
-            if (_bayManager is null)
-            {
-                return _layoutName;
-            }
-
-            if (_mainForm.AerodromeManager.ReturnLayouts(_mainForm.AerodromeManager.GetAerodromeType(_bayManager.AerodromeName)).Any(x => x.Name == _requestedDefaultLayoutName))
-            {
-                return _requestedDefaultLayoutName;
-            }
-            else
-            {
-                return "All";
-            }
-        }
-
-        set
-        {
-            _requestedDefaultLayoutName = value;
-        }
-    }
+    private readonly string _defaultLayoutName;
 
     private readonly MainForm _mainForm;
     private readonly Timer _timer;
@@ -81,6 +56,11 @@ public class MainFormController : IDisposable, IStripsWindow
     public static bool ControlHeld => Keyboard.GetKeyStates(KeybindManager.ActiveKeybinds[KeybindManager.KEYBINDS.MODIFIER1]).HasFlag(KeyStates.Down);
 
     /// <summary>
+    /// Gets the current ATIS code displayed in the control bar.
+    /// </summary>
+    public string CurrentATISCode { get; private set; } = "Z";
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="MainFormController"/> class.
     /// </summary>
     /// <param name="form">MainForm element.</param>
@@ -102,8 +82,8 @@ public class MainFormController : IDisposable, IStripsWindow
         _timer.Start();
         _mainForm.AerodromeManager.InitialiseOnNewWindow();
 
-        DefaultLayoutName = _mainForm.AerodromeManager.Settings?.DefaultLayout ?? "All";
-        _layoutName = DefaultLayoutName;
+        _defaultLayoutName = _mainForm.AerodromeManager.Settings?.DefaultLayout ?? "All";
+        _layoutName = _defaultLayoutName;
     }
 
     /// <summary>
@@ -218,7 +198,7 @@ public class MainFormController : IDisposable, IStripsWindow
         _mainForm.ViewListToolStrip.DropDownItems.Clear();
 
         var layouts = _mainForm.AerodromeManager.ReturnLayouts(_mainForm.AerodromeManager.GetAerodromeType(_bayManager.AerodromeName));
-        var bays = layouts.First(x => x.Name == DefaultLayoutName).Elements.Select(x => x.Bay);
+        var bays = layouts.First(x => x.Name == _defaultLayoutName).Elements.Select(x => x.Bay);
 
         var circuitBayDefined = bays.Any(x => x?.Circuit == true);
         var coordinatorBayDefined = bays.Any(x => x?.Coordinator == true);
@@ -271,7 +251,10 @@ public class MainFormController : IDisposable, IStripsWindow
                         types.Remove(StripBay.BAY_COORDINATOR);
                     }
 
-                    var bay = new Bay(types, _bayManager, _socketConn, element.Name, element.Column, element.Bay.CDMDisplay, availableElements.Count);
+                    var bay = new Bay(types, _bayManager, _socketConn, element.Name, element.Column, element.Bay.CDMDisplay, availableElements.Count)
+                    {
+                        HeightWeight = element.Weight <= 0 ? 1 : element.Weight,
+                    };
                     bay.OnBarsChanged += (_, _) =>
                     {
                         try
@@ -291,7 +274,7 @@ public class MainFormController : IDisposable, IStripsWindow
                 SetTitle();
             };
 
-            if (layout.Name == DefaultLayoutName)
+            if (layout.Name == _defaultLayoutName)
             {
                 _bayManager.BayRepository.SetLayout(action);
                 _defaultLayout = action;
@@ -540,6 +523,13 @@ public class MainFormController : IDisposable, IStripsWindow
             if (strip is not null && pilot is not null && pilot.GroundSpeed > 50)
             {
                 _socketConn.SendCDMUpdate(strip, CDMState.COMPLETE);
+
+                if (strip.ShouldRemoveAfterAirborne(pilot.GroundSpeed))
+                {
+                    strip.CurrentBay = StripBay.BAY_DEAD;
+                    _ = strip.SyncStrip();
+                    _bayManager.BayRepository.DeleteStrip(strip);
+                }
             }
         }
         catch (Exception ex)
@@ -714,6 +704,7 @@ public class MainFormController : IDisposable, IStripsWindow
     /// <param name="code">The ATIS code.</param>
     public void SetATISCode(string code)
     {
+        CurrentATISCode = code;
         _mainForm.ATISLabel.Text = code;
     }
 
@@ -790,6 +781,7 @@ public class MainFormController : IDisposable, IStripsWindow
                 _mainForm.Invoke(() =>
                 {
                     _mainForm.TimerTextBox.Text = DateTime.UtcNow.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+                    RemoveAirborneDepartures();
                     _bayManager.ForceRerender();
                 });
             }
@@ -831,6 +823,22 @@ public class MainFormController : IDisposable, IStripsWindow
         catch (Exception ex)
         {
             Util.LogError(ex);
+        }
+    }
+
+    private void RemoveAirborneDepartures()
+    {
+        foreach (var strip in _bayManager.StripRepository.Strips)
+        {
+            var pilot = Network.GetOnlinePilots.Find(x => x.Callsign == strip.FDR.Callsign);
+            if (pilot is null || !strip.ShouldRemoveAfterAirborne(pilot.GroundSpeed))
+            {
+                continue;
+            }
+
+            strip.CurrentBay = StripBay.BAY_DEAD;
+            _ = strip.SyncStrip();
+            _bayManager.BayRepository.DeleteStrip(strip);
         }
     }
 

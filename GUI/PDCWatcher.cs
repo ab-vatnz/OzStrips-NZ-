@@ -29,32 +29,29 @@ public partial class PDCWatcher : BaseForm
 
         _connection.On<Dictionary<string, int>?>("NewPDCs", (Dictionary<string, int>? pdcs) =>
         {
-            lock (_openRequests)
+            if (pdcs != null)
             {
-                if (pdcs != null)
+                _openRequests.Clear();
+
+                foreach (var aerodrome in pdcs.ToList())
                 {
-                    _openRequests.Clear();
-
-                    foreach (var aerodrome in pdcs.ToList())
+                    if (OwnsAerodrome(aerodrome.Key))
                     {
-                        if (OwnsAerodrome(aerodrome.Key))
-                        {
-                            _openRequests[aerodrome.Key] = aerodrome.Value;
-                        }
+                        _openRequests[aerodrome.Key] = aerodrome.Value;
                     }
-
-                    MMI.InvokeOnGUI(() =>
-                    {
-                        try
-                        {
-                            DisplayData();
-                        }
-                        catch (Exception ex)
-                        {
-                            Util.LogError(ex, "OzStrips PDC");
-                        }
-                    });
                 }
+
+                MMI.InvokeOnGUI(() =>
+                {
+                    try
+                    {
+                        DisplayData();
+                    }
+                    catch (Exception ex)
+                    {
+                        Util.LogError(ex, "OzStrips PDC");
+                    }
+                });
             }
         });
 
@@ -68,15 +65,12 @@ public partial class PDCWatcher : BaseForm
         table.Columns.Add("ICAO", typeof(string));
         table.Columns.Add("Open Requests", typeof(int));
 
-        lock (_openRequests)
+        foreach (var entry in _openRequests)
         {
-            foreach (var entry in _openRequests)
-            {
-                var row = table.NewRow();
-                row["ICAO"] = entry.Key;
-                row["Open Requests"] = entry.Value;
-                table.Rows.Add(row);
-            }
+            var row = table.NewRow();
+            row["ICAO"] = entry.Key;
+            row["Open Requests"] = entry.Value;
+            table.Rows.Add(row);
         }
 
         return table;

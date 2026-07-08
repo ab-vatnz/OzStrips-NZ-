@@ -1,16 +1,20 @@
-# This workflow will build a .NET project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
-
-name: Pull Request and Pushes
+name: Build and release vaSys plugin
 
 on:
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Optional tag name to release
+        required: false
+        default: ""
   push:
     branches:
       - master
       - vatnz/main
     tags:
-      - '*'
+      - "v*"
+      - "V*"
+      - "[0-9]*"
   pull_request:
     branches:
       - master
@@ -21,64 +25,105 @@ permissions:
 
 jobs:
   build:
-
     runs-on: windows-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
 
-    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
-    - name: Setup MSBuild.exe
-      uses: microsoft/setup-msbuild@v2
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Resolve release metadata
+        id: vars
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ("${{ github.event_name }}" -eq "workflow_dispatch" -and -not [string]::IsNullOrWhiteSpace("${{ github.event.inputs.tag_name }}")) {
+            $tag = "${{ github.event.inputs.tag_name }}"
+          }
 
-    - name: Download and install vatsys
-      run: |
-        curl https://vatsys.sawbe.com/downloads/vatSysSetup.zip -o vatsys.zip
-        7z x vatsys.zip
-        mkdir ${{ runner.temp }}\vatsys
-        msiexec /a vatSysSetup.msi /qb TARGETDIR=${{ runner.temp }}\vatsys
+          $isRelease = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true" -or -not [string]::IsNullOrWhiteSpace("${{ github.event.inputs.tag_name }}")
+          $fileVersion = $tag -replace '^[vV]', ''
+          if ($fileVersion -notmatch '^\d+(\.\d+){0,3}$') {
+            $fileVersion = '0.9.2'
+          }
 
-    - name: Resolve file version
-      id: version
-      shell: pwsh
-      run: |
-        $version = "${{ github.ref_name }}"
-        if ($version.StartsWith("v")) {
-          $version = $version.Substring(1)
-        }
-        if ($version -notmatch '^\d+(\.\d+){0,3}$') {
-          $version = "1.0.0"
-        }
-        "file_version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "is_release=$($isRelease.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "file_version=$fileVersion" >> $env:GITHUB_OUTPUT
 
-    - name: Build
-      run: msbuild /t:build /m /v:minimal /p:"VatSysDir=${{ runner.temp }}\vatsys;OutDir=${{ runner.temp }}\build" /p:TargetFrameworks=net481 /p:FileVersion=${{ steps.version.outputs.file_version }}
-    - name: Archive
-      if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      uses: thedoctor0/zip-release@0.7.6
-      with:
-        directory: '${{ runner.temp }}/build'
-        filename: 'OzStrips-VATNZ-${{ github.ref_name }}.zip'
-    - uses: ncipollo/release-action@v1
-      if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      with:
-        name: "OzStrips VATNZ ${{ github.ref_name }}"
-        body: |
-          VATNZ/New Zealand OzStrips build for vaSys.
+      - name: Download and extract vatSys
+        id: vatsys
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'vatSysSetup.zip'
+          $extract = Join-Path $env:RUNNER_TEMP 'vatsys-installer'
+          $target = Join-Path $env:RUNNER_TEMP 'vatsys-admin'
 
-          Install by extracting the zip into:
+          Invoke-WebRequest -Uri 'https://vatsys.sawbe.com/downloads/vatSysSetup.zip' -OutFile $zip
+          New-Item -ItemType Directory -Force -Path $extract, $target | Out-Null
+          7z x $zip "-o$extract" -y
 
-          `C:\Users\<YourName>\Documents\vatSys Files\Profiles\New Zealand\Plugins\OzStrips`
-        artifacts: "${{ runner.temp }}/build/OzStrips-VATNZ-${{ github.ref_name }}.zip"
-        token: ${{ secrets.GITHUB_TOKEN }}
+          $msi = Get-ChildItem -Path $extract -Recurse -Filter '*.msi' | Select-Object -First 1
+          if (-not $msi) {
+            throw 'vatSysSetup.msi was not found in the downloaded zip.'
+          }
+
+          $process = Start-Process msiexec.exe -ArgumentList @('/a', $msi.FullName, '/qn', "TARGETDIR=$target") -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "vatSys administrative install failed with exit code $($process.ExitCode)."
+          }
+
+          $exe = Get-ChildItem -Path $target -Recurse -Filter 'vatSys.exe' | Select-Object -First 1
+          if (-not $exe) {
+            throw 'vatSys.exe was not found after administrative install.'
+          }
+
+          $vatSysDir = Split-Path (Split-Path $exe.FullName -Parent) -Parent
+          "vat_sys_dir=$vatSysDir" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        shell: pwsh
+        run: msbuild .\ozstrips.sln /t:Restore /p:VatSysDir="${{ steps.vatsys.outputs.vat_sys_dir }}" /p:RestoreIgnoreFailedSources=true /v:minimal
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $outDir = Join-Path $env:RUNNER_TEMP 'OzStrips-VATNZ'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          msbuild .\GUI\GUI.csproj /p:Configuration=Release /p:TargetFrameworks=net481 /p:VatSysDir="${{ steps.vatsys.outputs.vat_sys_dir }}" /p:OutDir="$outDir\" /p:FileVersion=${{ steps.vars.outputs.file_version }} /m /v:minimal
+          "out_dir=$outDir" >> $env:GITHUB_OUTPUT
+        id: build
+
+      - name: Package
+        if: steps.vars.outputs.is_release == 'true'
+        id: package
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP "OzStrips-VATNZ-${{ steps.vars.outputs.tag }}.zip"
+          Compress-Archive -Path (Join-Path '${{ steps.build.outputs.out_dir }}' '*') -DestinationPath $zip -Force
+          "zip=$zip" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        if: steps.vars.outputs.is_release == 'true'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.vars.outputs.tag }}
+          name: "OzStrips VATNZ ${{ steps.vars.outputs.tag }}"
+          artifacts: ${{ steps.package.outputs.zip }}
+          allowUpdates: true
+          replacesArtifacts: true
+          body: |
+            VATNZ/New Zealand OzStrips build for vaSys.
+
+            Install by extracting the zip into:
+
+            `C:\Users\<YourName>\Documents\vatSys Files\Profiles\New Zealand\Plugins\OzStrips`
