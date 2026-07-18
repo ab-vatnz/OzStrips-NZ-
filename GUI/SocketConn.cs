@@ -39,7 +39,6 @@ public sealed class SocketConn : IAsyncDisposable
         }
     }
 
-    private bool _versionShown;
     private bool _isDisposed;
     private DateTime? _aerodromeSubscriptionRegistered;
 
@@ -51,7 +50,7 @@ public sealed class SocketConn : IAsyncDisposable
     public SocketConn(BayManager bayManager, MainFormController mainForm)
     {
         _connection = new HubConnectionBuilder()
-            .WithUrl(OzStripsConfig.socketioaddr + "ozstrips/hub/v2")
+            .WithUrl(ServerEndpoint.BaseUrl + "ozstrips/hub/v2")
             .WithAutomaticReconnect()
             .Build();
 
@@ -168,20 +167,6 @@ public sealed class SocketConn : IAsyncDisposable
             if (pdcs is not null && pdcs.Length > 0)
             {
                 InvokeOnGUI(() => NewPDCsReceived?.Invoke(this, pdcs));
-            }
-        });
-
-        RegisterListener<string?>("VersionInfo", async appversion =>
-        {
-            if (appversion is null)
-            {
-                return;
-            }
-
-            if (!_versionShown && appversion != OzStripsConfig.version && !AerodromeManager.InhibitVersionCheck)
-            {
-                _versionShown = true;
-                InvokeOnGUI(() => Util.ShowInfoBox("New Update Available: " + appversion));
             }
         });
 
@@ -632,7 +617,7 @@ public sealed class SocketConn : IAsyncDisposable
     /// <returns>Task.</returns>
     public async Task Connect()
     {
-        AddMessage("#Attempting connection " + OzStripsConfig.socketioaddr);
+        AddMessage("#Attempting connection " + ServerEndpoint.BaseUrl);
         await _connectionSemaphore.WaitAsync();
 
         // try-catch to ensure semaphore is released.
